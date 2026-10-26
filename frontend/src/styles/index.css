@@ -1,0 +1,178 @@
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/space-grotesk-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/space-grotesk-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/space-grotesk-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/geist-mono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/geist-mono-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/anton-400.woff2') format('woff2');
+}
+
+:root {
+  --bg: #050506;
+  --bg-card: #0a0b0d;
+  --bg-card-alt: #0f1113;
+  --bg-hover: #15181b;
+  --fg: #f2f0e9;
+  --fg-muted: #8b8f95;
+  --fg-dim: #5a5f65;
+  --fg-dark: #34383d;
+  --accent: #ff4d12;
+  --accent-glow: #ff4d1247;
+  --cyan: #14e7d2;
+  --cyan-glow: #14e7d233;
+  --blue: #2f7bff;
+  --blue-soft: #6ea3ff;
+  --red: #ff2733;
+  --border-subtle: #ffffff0f;
+  --border: #ffffff1c;
+  --border-bright: #ffffff33;
+  --crop: #fff3;
+  --dot: #ff4d12;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background-color: #000;
+  color: var(--fg);
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  overflow-x: hidden;
+  text-size-adjust: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--bg);
+  color: var(--fg);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+
+/* Animations */
+@keyframes row-enter {
+  0% {
+    opacity: 0;
+    background: #2f7bff17;
+    transform: translateY(-7px);
+  }
+  100% {
+    opacity: 1;
+    background: transparent;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rec-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(1000%); }
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0b0d;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffffff1c;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Typography Helpers */
+.font-mono {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.font-display {
+  font-family: 'Anton', Arial Narrow, 'Helvetica Neue', sans-serif;
+}
+.font-sans {
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Reticle & Markings */
+.corner-mark {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  z-index: 5;
+}
+.corner-mark::before, .corner-mark::after {
+  content: "";
+  position: absolute;
+  background: var(--fg-dim);
+}
+
+/* Interactive elements */
+button, input, select, textarea {
+  font-family: inherit;
+}
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
