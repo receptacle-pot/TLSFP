@@ -4,7 +4,9 @@ const path = require('path');
 
 const PORT = 3000;
 const API_PORT = 3001;
-const SITE_DIR = path.resolve(__dirname, '../site');
+const SITE_DIR = fs.existsSync(path.resolve(__dirname, '../public'))
+  ? path.resolve(__dirname, '../public')
+  : path.resolve(__dirname, '../site');
 
 // MIME types table
 const MIME_TYPES = {

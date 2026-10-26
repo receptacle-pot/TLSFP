@@ -1,0 +1,20 @@
+{
+  "name": "tlsfp",
+  "version": "1.0.0",
+  "description": "TLSFP // Passive TLS Surveillance & Intelligence Platform",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node backend_service/server.js",
+    "build": "echo 'Ready for Vercel deployment'"
+  },
+  "keywords": [
+    "tls",
+    "ja3",
+    "ja4",
+    "fingerprinting",
+    "cybersecurity",
+    "surveillance"
+  ],
+  "author": "receptacle-pot",
+  "license": "MIT"
+}
