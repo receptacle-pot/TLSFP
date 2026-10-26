@@ -47,6 +47,9 @@ let intelCategories = [
   { category: 'unknown', records: 1022 },
 ];
 
+let liveIntelTotal = 31797;
+let liveAlertsTotal = 399;
+
 let alertsByRule = [
   { rule: 'ua_mismatch', count: 184 },
   { rule: 'known_bad', count: 96 },
@@ -718,18 +721,18 @@ function broadcastEvent(data) {
 // Highly active, real-time wire-tap simulation broadcasting live flows and alerts
 let cycle = 0;
 setInterval(() => {
-  if (sseClients.size === 0) return;
   cycle++;
 
   const sample = corpusItems[Math.floor(Math.random() * corpusItems.length)];
   const isMalicious = sample.category === 'malware' || sample.category === 'c2';
-  const isSuspicious = sample.category === 'tool';
+  const isTool = sample.category === 'tool';
   const nowNanos = Date.now() * 1_000_000;
   const srcPort = Math.floor(40000 + Math.random() * 20000);
-  const srcIp = `192.168.1.${Math.floor(2 + Math.random() * 250)}`;
+  const srcSubnets = ['192.168.1', '10.0.4', '172.16.10', '192.168.20'];
+  const srcIp = `${srcSubnets[Math.floor(Math.random() * srcSubnets.length)]}.${Math.floor(2 + Math.random() * 250)}`;
   const dstIp = isMalicious
     ? `198.51.100.${Math.floor(10 + Math.random() * 80)}`
-    : isSuspicious
+    : isTool
     ? `104.21.${Math.floor(10 + Math.random() * 80)}.${Math.floor(10 + Math.random() * 200)}`
     : '104.21.34.112';
 
@@ -737,93 +740,194 @@ setInterval(() => {
   const ja4Raw = 't13d1516h2_130113021303_00000017000d';
 
   let alertList = undefined;
-  if (isMalicious) {
-    const alertItem = {
-      ts_nanos: nowNanos,
-      rule: 'known_bad',
-      severity: 'critical',
-      ip: `${srcIp}:${srcPort}`,
-      fp_kind: sample.kind,
-      fp_value: sample.value,
-      title: 'known-bad fingerprint',
-      detail: `Fingerprint ${sample.value.slice(0, 12)}... matches verified C2 implant signature from threat catalogues.`,
-      score: 98,
-    };
-    alertList = [alertItem];
-    alertsLedger.unshift(alertItem);
-    if (alertsLedger.length > 100) alertsLedger.pop();
-    const r = alertsByRule.find((x) => x.rule === 'known_bad');
-    if (r) r.count++;
-  } else if (isSuspicious && Math.random() > 0.4) {
-    const alertItem = {
-      ts_nanos: nowNanos,
-      rule: 'ua_mismatch',
-      severity: 'high',
-      ip: `${srcIp}:${srcPort}`,
-      fp_kind: sample.kind,
-      fp_value: sample.value,
-      title: 'the user-agent is lying',
-      detail: 'HTTP User-Agent claimed Mac Chrome 129, but cryptographic cipher ordering matches Python urllib3.',
-      score: 86,
-    };
-    alertList = [alertItem];
-    alertsLedger.unshift(alertItem);
-    if (alertsLedger.length > 100) alertsLedger.pop();
-    const r = alertsByRule.find((x) => x.rule === 'ua_mismatch');
-    if (r) r.count++;
+
+  // Decide rule to trigger dynamically across all 6 verified rules
+  let triggerRule = null;
+  if (isMalicious && Math.random() > 0.15) {
+    triggerRule = 'known_bad';
+  } else if (isTool && Math.random() > 0.3) {
+    triggerRule = 'ua_mismatch';
+  } else if (cycle % 7 === 0) {
+    triggerRule = 'os_mismatch';
+  } else if (cycle % 11 === 0) {
+    triggerRule = 'first_seen';
+  } else if (cycle % 15 === 0) {
+    triggerRule = 'fp_rotation';
+  } else if (cycle % 21 === 0) {
+    triggerRule = 'monoculture';
   }
 
-  // 1. Send Flow Message
-  const flowMsg = {
-    type: 'flow',
-    event: {
-      kind: 'client_hello',
-      ts_nanos: nowNanos,
-      src: `${srcIp}:${srcPort}`,
-      dst: `${dstIp}:443`,
-      ja3: sample.kind === 'ja3' ? sample.value : 'cd08e31494f9531f560d64cfa3f2233f',
-      ja3_raw: '771,4865-4866-4867-49195-49199,0-23-65281-10-11,29-23-24,0',
-      ja4: {
-        hash: ja4Hash,
-        raw: ja4Raw,
-      },
-      sni: sample.category === 'benign' ? 'cloudflare.com' : undefined,
-      alpn: 'h2',
-    },
-    intel: [
-      {
-        kind: sample.kind,
-        observed: sample.value,
-        verdict: isMalicious ? 'malicious' : isSuspicious ? 'suspicious' : 'benign',
-        threat_score: isMalicious ? 95 : isSuspicious ? 70 : 5,
-        confidence: 0.94,
-        hits: [
-          {
-            kind: sample.kind,
-            value: sample.value,
-            label: sample.label,
-            category: sample.category,
-            source: sample.source,
-            reference: sample.reference || undefined,
-            strength: 'exact',
-          },
-        ],
-      },
-    ],
-    alerts: alertList,
-  };
+  if (triggerRule) {
+    let alertItem;
+    if (triggerRule === 'known_bad') {
+      alertItem = {
+        ts_nanos: nowNanos,
+        rule: 'known_bad',
+        severity: 'critical',
+        ip: `${srcIp}:${srcPort}`,
+        fp_kind: sample.kind,
+        fp_value: sample.value,
+        title: 'known-bad fingerprint',
+        detail: `Fingerprint ${sample.value.slice(0, 14)}... matches verified ${sample.label} implant signature from threat intelligence feeds.`,
+        score: Math.floor(94 + Math.random() * 6),
+      };
+    } else if (triggerRule === 'ua_mismatch') {
+      const uas = [
+        'Mac Chrome 129.0.0.0 (AppleWebKit)',
+        'Windows 11 Edge 129.0 (Blink)',
+        'iOS 18.0 Safari (Mobile WebKit)',
+        'Ubuntu Firefox 131.0 (Gecko)',
+      ];
+      const tools = ['Python urllib3 / Requests 2.32', 'Go-http-client standard', 'cURL 8.10 OpenSSL', 'Node.js fetch / undici'];
+      alertItem = {
+        ts_nanos: nowNanos,
+        rule: 'ua_mismatch',
+        severity: 'high',
+        ip: `${srcIp}:${srcPort}`,
+        fp_kind: sample.kind,
+        fp_value: sample.value,
+        title: 'the user-agent is lying',
+        detail: `HTTP User-Agent claimed ${uas[cycle % uas.length]}, but cryptographic cipher order and extensions match ${tools[cycle % tools.length]}.`,
+        score: Math.floor(82 + Math.random() * 8),
+      };
+    } else if (triggerRule === 'os_mismatch') {
+      alertItem = {
+        ts_nanos: nowNanos,
+        rule: 'os_mismatch',
+        severity: 'medium',
+        ip: `${srcIp}:${srcPort}`,
+        fp_kind: sample.kind,
+        fp_value: sample.value,
+        title: 'the stack betrays the os',
+        detail: `TCP window size (${Math.floor(64000 + Math.random() * 1500)}) and TTL indicate Linux kernel, but TLS ClientHello extensions mimic Windows 11 Edge browser.`,
+        score: Math.floor(65 + Math.random() * 10),
+      };
+    } else if (triggerRule === 'first_seen') {
+      alertItem = {
+        ts_nanos: nowNanos,
+        rule: 'first_seen',
+        severity: 'low',
+        ip: `${srcIp}:${srcPort}`,
+        fp_kind: sample.kind,
+        fp_value: sample.value,
+        title: 'first sighting',
+        detail: `Unobserved cryptographic permutation (${sample.value.slice(0, 14)}...) recorded across the perimeter for the first time.`,
+        score: Math.floor(35 + Math.random() * 15),
+      };
+    } else if (triggerRule === 'fp_rotation') {
+      alertItem = {
+        ts_nanos: nowNanos,
+        rule: 'fp_rotation',
+        severity: 'high',
+        ip: `${srcIp}:${srcPort}`,
+        fp_kind: sample.kind,
+        fp_value: sample.value,
+        title: 'rapid fingerprint agility',
+        detail: `Host at ${srcIp} rotated through 3 distinct TLS handshakes within a 45-second observation window.`,
+        score: Math.floor(84 + Math.random() * 8),
+      };
+    } else if (triggerRule === 'monoculture') {
+      alertItem = {
+        ts_nanos: nowNanos,
+        rule: 'monoculture',
+        severity: 'info',
+        ip: `${srcIp}:${srcPort}`,
+        fp_kind: sample.kind,
+        fp_value: sample.value,
+        title: 'monoculture drift',
+        detail: `Host cipher negotiation includes legacy 3DES/RC4 suites deviating from internal corporate perimeter baseline.`,
+        score: Math.floor(25 + Math.random() * 12),
+      };
+    }
 
-  broadcastEvent(flowMsg);
-
-  // 2. Occasionally send standalone alert event to trigger ALR alert row
-  if (alertList && cycle % 3 === 0) {
-    const alertMsg = {
-      type: 'alert',
-      alert: alertList[0],
-    };
-    broadcastEvent(alertMsg);
+    if (alertItem) {
+      alertList = [alertItem];
+      alertsLedger.unshift(alertItem);
+      if (alertsLedger.length > 100) alertsLedger.pop();
+      const r = alertsByRule.find((x) => x.rule === alertItem.rule);
+      if (r) r.count++;
+      liveAlertsTotal++;
+    }
   }
-}, 1400);
+
+  // Periodic Intel Corpus Expansion (every 3 cycles ~ 3.3s)
+  if (cycle % 3 === 0) {
+    liveIntelTotal += Math.floor(Math.random() * 3) + 1;
+    const src = intelSources[Math.floor(Math.random() * intelSources.length)];
+    if (src) src.records += Math.floor(Math.random() * 2) + 1;
+    const cat = intelCategories[Math.floor(Math.random() * intelCategories.length)];
+    if (cat) cat.records += Math.floor(Math.random() * 2) + 1;
+  }
+
+  // Ingest newly observed candidate fingerprint into corpusItems (every 10 cycles)
+  if (cycle % 10 === 0 && corpusItems.length < 150) {
+    const novelKinds = ['ja4', 'ja3', 'ja4s', 'ja4h'];
+    const chosenKind = novelKinds[Math.floor(Math.random() * novelKinds.length)];
+    const hexHash = Math.random().toString(16).substring(2, 14);
+    const novelItem = {
+      kind: chosenKind,
+      value: chosenKind === 'ja4' ? `t13d1618h2_${hexHash}_118274aef001` : chosenKind === 'ja3' ? Math.random().toString(16).substring(2, 34) : `t1302h2_1301_${hexHash}`,
+      label: `Observed Perimeter Candidate #${liveIntelTotal}`,
+      category: Math.random() > 0.5 ? 'benign' : Math.random() > 0.5 ? 'tool' : 'malware',
+      source: 'Live Wire-Tap Observation',
+      reference: 'Perimeter Sensor Ingestion',
+    };
+    corpusItems.push(novelItem);
+  }
+
+  // Broadcast to connected SSE clients
+  if (sseClients.size > 0) {
+    const flowMsg = {
+      type: 'flow',
+      event: {
+        kind: 'client_hello',
+        ts_nanos: nowNanos,
+        src: `${srcIp}:${srcPort}`,
+        dst: `${dstIp}:443`,
+        ja3: sample.kind === 'ja3' ? sample.value : 'cd08e31494f9531f560d64cfa3f2233f',
+        ja3_raw: '771,4865-4866-4867-49195-49199,0-23-65281-10-11,29-23-24,0',
+        ja4: {
+          hash: ja4Hash,
+          raw: ja4Raw,
+        },
+        sni: sample.category === 'benign' ? 'cloudflare.com' : undefined,
+        alpn: 'h2',
+      },
+      intel: [
+        {
+          kind: sample.kind,
+          observed: sample.value,
+          verdict: isMalicious ? 'malicious' : isTool ? 'suspicious' : 'benign',
+          threat_score: isMalicious ? 95 : isTool ? 70 : 5,
+          confidence: 0.94,
+          hits: [
+            {
+              kind: sample.kind,
+              value: sample.value,
+              label: sample.label,
+              category: sample.category,
+              source: sample.source,
+              reference: sample.reference || undefined,
+              strength: 'exact',
+            },
+          ],
+        },
+      ],
+      alerts: alertList,
+    };
+
+    broadcastEvent(flowMsg);
+
+    // Occasionally send standalone alert event to trigger ALR alert row in feed
+    if (alertList && cycle % 2 === 0) {
+      const alertMsg = {
+        type: 'alert',
+        alert: alertList[0],
+      };
+      broadcastEvent(alertMsg);
+    }
+  }
+}, 1100);
 
 // Request handler supporting both exact API and static site files
 function handleRequest(req, res) {
@@ -865,10 +969,10 @@ function handleRequest(req, res) {
         intel: {
           sources: intelSources,
           by_category: intelCategories,
-          total: 31797,
+          total: liveIntelTotal,
         },
         alerts_by_rule: alertsByRule,
-        alert_total: alertsLedger.length,
+        alert_total: liveAlertsTotal,
       })
     );
     return;
