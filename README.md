@@ -79,6 +79,17 @@ Ran 4 tests in 0.001s
 OK
 ```
 
+### 3. Deploy to Vercel (1-Click & Zero-Config)
+The repository is pre-configured with `vercel.json`, root `public/` static delivery, and `api/index.js` serverless handlers.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Freceptacle-pot%2FTLSFP)
+
+**Deployment Steps:**
+1. Open [vercel.com/new](https://vercel.com/new).
+2. Click **Import** next to your repository: **`receptacle-pot/TLSFP`**.
+3. Leave all default build settings as detected (no build override required).
+4. Click **Deploy**. Vercel will build and assign your live production URL (e.g. `https://tlsfp.vercel.app`).
+
 ---
 
 ## 🛡️ Security & Privacy Notice
