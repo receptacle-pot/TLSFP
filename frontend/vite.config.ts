@@ -8,7 +8,7 @@ export default defineConfig({
     host: '127.0.0.1',
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.BACKEND_RUST_URL || process.env.BACKEND_URL || 'http://localhost:3001',
         changeOrigin: true,
       },
     },
