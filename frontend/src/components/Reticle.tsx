@@ -29,12 +29,13 @@ export const RegistrationMark: React.FC<{ className?: string }> = ({ className =
       className={className}
       width="18"
       height="18"
-      viewBox="0 0 18 18"
+      viewBox="0 0 100 100"
       aria-hidden="true"
-      style={{ stroke: 'currentColor', fill: 'none', strokeWidth: 1 }}
+      style={{ stroke: '#FFFFFF', fill: 'none', strokeWidth: 7 }}
     >
-      <path d="M9 0v6M9 12v6M0 9h6M12 9h6" />
-      <circle cx="9" cy="9" r="2.4" />
+      <polygon points="50,8 7,92 93,92" />
+      <circle cx="50" cy="64" r="26.5" />
+      <line x1="50" y1="8" x2="50" y2="92" />
     </svg>
   );
 };

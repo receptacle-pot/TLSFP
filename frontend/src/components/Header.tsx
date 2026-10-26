@@ -48,9 +48,9 @@ export const Header: React.FC<HeaderProps> = ({
         borderColor: '#ffffff1c',
       }}
     >
-      {/* Left: Registration Mark, TLSFP Mark, and Tagline */}
+      {/* Left: White Logo, TLSFP Mark, and Tagline */}
       <div className="flex items-center gap-3">
-        <RegistrationMark className="text-[#5a5f65]" />
+        <RegistrationMark className="text-white" />
         <Link
           to="/"
           className="font-display text-2xl tracking-wider text-[#f2f0e9] hover:text-[#ff4d12] transition-colors"
