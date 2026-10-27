@@ -1,5 +1,5 @@
 //! JA3 TLS Fingerprinting standard implementation
-//! Author(s): Ac AngelaMos, CarterPerez-dev
+//! Author(s): receptacle-pot
 
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};

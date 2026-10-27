@@ -1,5 +1,5 @@
 //! TLS Intelligence Platform - Axum HTTP API and SSE Stream Engine
-//! Author(s): Ac AngelaMos, CarterPerez-dev
+//! Author(s): receptacle-pot
 
 mod db;
 mod detector;

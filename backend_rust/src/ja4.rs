@@ -1,6 +1,6 @@
 //! JA4 TLS Client Fingerprinting (FoxIO Standard)
 //! Implementation adhering to FoxIO JA4 specification
-//! Author(s): Ac AngelaMos, CarterPerez-dev
+//! Author(s): receptacle-pot
 
 use crate::ja3::is_grease;
 use serde::{Deserialize, Serialize};

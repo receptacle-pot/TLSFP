@@ -1,5 +1,5 @@
 //! SQLite Database interface for persistent fingerprints, observations, and alerts
-//! Author(s): Ac AngelaMos, CarterPerez-dev
+//! Author(s): receptacle-pot
 
 use crate::models::{AlertRecord, CorpusSearchItem, ObservationRecord, StatsResponse, IntelSource, CategoryStat, RuleStat, IntelStats};
 use rusqlite::{params, Connection, Result};

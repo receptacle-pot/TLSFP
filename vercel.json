@@ -3,7 +3,8 @@
   "services": {
     "backend_rust": {
       "root": "backend_rust",
-      "runtime": "rust"
+      "runtime": "rust",
+      "entrypoint": "src/main.rs"
     },
     "frontend": {
       "root": "frontend",

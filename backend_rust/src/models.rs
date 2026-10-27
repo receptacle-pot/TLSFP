@@ -1,5 +1,5 @@
 //! Data models for TLS Intelligence Platform
-//! Author(s): Ac AngelaMos, CarterPerez-dev
+//! Author(s): receptacle-pot
 
 use serde::{Deserialize, Serialize};
 

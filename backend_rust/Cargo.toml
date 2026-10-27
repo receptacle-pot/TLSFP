@@ -2,8 +2,12 @@
 name = "tls-intelligence-engine"
 version = "1.0.0"
 edition = "2021"
-authors = ["Ac AngelaMos", "CarterPerez-dev"]
+authors = ["receptacle-pot"]
 description = "High-performance JA3/JA4+ TLS Fingerprinting and Anomaly Detection Platform"
+
+[[bin]]
+name = "tls-intelligence-engine"
+path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1.38", features = ["full"] }

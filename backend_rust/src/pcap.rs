@@ -1,5 +1,5 @@
 //! PCAP Packet Capture and TLS Handshake parser
-//! Author(s): Ac AngelaMos, CarterPerez-dev
+//! Author(s): receptacle-pot
 
 use crate::ja3::{generate_ja3, Ja3Fingerprint};
 use crate::ja4::{generate_ja4, Ja4Fingerprint};

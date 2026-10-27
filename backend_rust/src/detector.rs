@@ -1,5 +1,5 @@
 //! Cryptographic contradiction detection and threat scoring engine
-//! Author(s): Ac AngelaMos, CarterPerez-dev
+//! Author(s): receptacle-pot
 
 use crate::models::AlertRecord;
 use crate::pcap::ParsedClientHello;
