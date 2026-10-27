@@ -687,10 +687,12 @@ module.exports = function handler(req, res) {
   const pathname = parsedUrl.pathname;
   const method = req.method;
 
-  // Add CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Add CORS headers with credentials support
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
   if (method === 'OPTIONS') {
     res.statusCode = 204;
@@ -771,12 +773,60 @@ module.exports = function handler(req, res) {
 
   // --- /api/stream ---
   if (pathname.endsWith('/stream') || pathname.endsWith('/events')) {
+    const origin = req.headers.origin || '*';
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.statusCode = 200;
 
     res.write(': connected\n\n');
+
+    // Immediate initial event so Scope grid and telemetry populate instantly
+    const initialSample = corpusItems[0];
+    const initialNow = Date.now() * 1_000_000;
+    const initialFlow = {
+      type: 'flow',
+      event: {
+        kind: 'client_hello',
+        ts_nanos: initialNow,
+        src: '192.168.1.102:51940',
+        dst: '104.21.34.112:443',
+        ja3: initialSample.value,
+        ja3_raw: '771,4865-4866-4867-49195-49199,0-23-65281-10-11,29-23-24,0',
+        ja4: {
+          hash: 't13d1516h2_8daaf6152771_e562703ab854',
+          raw: 't13d1516h2_130113021303_00000017000d',
+        },
+        sni: 'cloudflare.com',
+        alpn: 'h2',
+      },
+      intel: [
+        {
+          kind: initialSample.kind,
+          observed: initialSample.value,
+          verdict: 'benign',
+          threat_score: 5,
+          confidence: 0.98,
+          hits: [
+            {
+              kind: initialSample.kind,
+              value: initialSample.value,
+              label: initialSample.label,
+              category: initialSample.category,
+              source: initialSample.source,
+              reference: initialSample.reference,
+              strength: 'exact',
+            },
+          ],
+        },
+      ],
+      alerts: undefined,
+    };
+    try {
+      res.write(`data: ${JSON.stringify(initialFlow)}\n\n`);
+    } catch {}
 
     let count = 0;
     const interval = setInterval(() => {
@@ -786,24 +836,119 @@ module.exports = function handler(req, res) {
       const isTool = sample.category === 'tool';
       const nowNanos = Date.now() * 1_000_000;
       const srcPort = Math.floor(40000 + Math.random() * 20000);
-      const srcIp = `192.168.1.${Math.floor(2 + Math.random() * 250)}`;
-      const dstIp = isMalicious ? '198.51.100.24' : '104.21.34.112';
+      const subnets = ['192.168.1', '10.0.4', '172.16.10', '192.168.20'];
+      const srcIp = `${subnets[Math.floor(Math.random() * subnets.length)]}.${Math.floor(2 + Math.random() * 250)}`;
+      const dstIp = isMalicious
+        ? `198.51.100.${Math.floor(10 + Math.random() * 80)}`
+        : isTool
+        ? `104.21.${Math.floor(10 + Math.random() * 80)}.${Math.floor(10 + Math.random() * 200)}`
+        : '104.21.34.112';
 
       let alertList = undefined;
-      if (isMalicious || (isTool && Math.random() > 0.4)) {
-        alertList = [
-          {
+      let triggerRule = null;
+      if (isMalicious && Math.random() > 0.15) {
+        triggerRule = 'known_bad';
+      } else if (isTool && Math.random() > 0.3) {
+        triggerRule = 'ua_mismatch';
+      } else if (count % 7 === 0) {
+        triggerRule = 'os_mismatch';
+      } else if (count % 11 === 0) {
+        triggerRule = 'first_seen';
+      } else if (count % 15 === 0) {
+        triggerRule = 'fp_rotation';
+      } else if (count % 21 === 0) {
+        triggerRule = 'monoculture';
+      }
+
+      if (triggerRule) {
+        let alertItem;
+        if (triggerRule === 'known_bad') {
+          alertItem = {
             ts_nanos: nowNanos,
-            rule: isMalicious ? 'known_bad' : 'ua_mismatch',
-            severity: isMalicious ? 'critical' : 'high',
+            rule: 'known_bad',
+            severity: 'critical',
             ip: `${srcIp}:${srcPort}`,
             fp_kind: sample.kind,
             fp_value: sample.value,
-            title: isMalicious ? 'known-bad fingerprint' : 'the user-agent is lying',
-            detail: `Observed cryptographic signature ${sample.value.slice(0, 14)}... matched on perimeter.`,
-            score: isMalicious ? 98 : 84,
-          },
-        ];
+            title: 'known-bad fingerprint',
+            detail: `Fingerprint ${sample.value.slice(0, 14)}... matches verified ${sample.label} implant signature.`,
+            score: Math.floor(94 + Math.random() * 6),
+          };
+        } else if (triggerRule === 'ua_mismatch') {
+          alertItem = {
+            ts_nanos: nowNanos,
+            rule: 'ua_mismatch',
+            severity: 'high',
+            ip: `${srcIp}:${srcPort}`,
+            fp_kind: sample.kind,
+            fp_value: sample.value,
+            title: 'the user-agent is lying',
+            detail: `HTTP User-Agent claimed Mac Chrome 129.0, but cryptographic cipher order matches ${sample.label}.`,
+            score: Math.floor(82 + Math.random() * 8),
+          };
+        } else if (triggerRule === 'os_mismatch') {
+          alertItem = {
+            ts_nanos: nowNanos,
+            rule: 'os_mismatch',
+            severity: 'medium',
+            ip: `${srcIp}:${srcPort}`,
+            fp_kind: sample.kind,
+            fp_value: sample.value,
+            title: 'the stack betrays the os',
+            detail: `TCP SYN parameters indicate Linux kernel, but TLS ClientHello matches Windows client profile.`,
+            score: Math.floor(60 + Math.random() * 10),
+          };
+        } else if (triggerRule === 'first_seen') {
+          alertItem = {
+            ts_nanos: nowNanos,
+            rule: 'first_seen',
+            severity: 'low',
+            ip: `${srcIp}:${srcPort}`,
+            fp_kind: sample.kind,
+            fp_value: sample.value,
+            title: 'first sighting',
+            detail: `Unobserved cryptographic permutation recorded across perimeter for the first time.`,
+            score: Math.floor(30 + Math.random() * 8),
+          };
+        } else if (triggerRule === 'fp_rotation') {
+          alertItem = {
+            ts_nanos: nowNanos,
+            rule: 'fp_rotation',
+            severity: 'high',
+            ip: `${srcIp}:${srcPort}`,
+            fp_kind: sample.kind,
+            fp_value: sample.value,
+            title: 'rapid fingerprint agility',
+            detail: `Client rotated cryptographic extensions 3 times in a 45-second window.`,
+            score: Math.floor(85 + Math.random() * 6),
+          };
+        } else if (triggerRule === 'monoculture') {
+          alertItem = {
+            ts_nanos: nowNanos,
+            rule: 'monoculture',
+            severity: 'info',
+            ip: `${srcIp}:${srcPort}`,
+            fp_kind: sample.kind,
+            fp_value: sample.value,
+            title: 'monoculture drift',
+            detail: `Host cipher negotiation includes legacy cipher suites deviating from perimeter baseline.`,
+            score: Math.floor(25 + Math.random() * 10),
+          };
+        }
+
+        if (alertItem) {
+          alertList = [alertItem];
+          alertsLedger.unshift(alertItem);
+          if (alertsLedger.length > 80) alertsLedger.pop();
+          const r = alertsByRule.find((x) => x.rule === alertItem.rule);
+          if (r) r.count++;
+          liveAlertsTotal++;
+        }
+      }
+
+      // Update total counts
+      if (count % 3 === 0) {
+        liveIntelTotal += Math.floor(Math.random() * 2) + 1;
       }
 
       const flowMsg = {
@@ -851,11 +996,18 @@ module.exports = function handler(req, res) {
         clearInterval(interval);
       }
 
-      if (count > 25) {
+      // Occasionally send standalone alert event to trigger ALR row in UI
+      if (alertList && count % 2 === 0) {
+        try {
+          res.write(`data: ${JSON.stringify({ type: 'alert', alert: alertList[0] })}\n\n`);
+        } catch {}
+      }
+
+      if (count > 50) {
         clearInterval(interval);
         res.end();
       }
-    }, 1200);
+    }, 1100);
 
     req.on('close', () => clearInterval(interval));
     return;

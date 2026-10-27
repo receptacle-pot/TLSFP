@@ -937,10 +937,12 @@ function handleRequest(req, res) {
   const pathname = parsedUrl.pathname;
   const method = req.method;
 
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS headers with credentials support
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
   if (method === 'OPTIONS') {
     res.writeHead(204);
@@ -1016,6 +1018,51 @@ function handleRequest(req, res) {
       Connection: 'keep-alive',
     });
     res.write(': connected\n\n');
+
+    // Immediate initial flow event so Scope dashboard populates instantly
+    const initialSample = corpusItems[0];
+    const initialNow = Date.now() * 1_000_000;
+    const initialFlow = {
+      type: 'flow',
+      event: {
+        kind: 'client_hello',
+        ts_nanos: initialNow,
+        src: '192.168.1.102:51940',
+        dst: '104.21.34.112:443',
+        ja3: initialSample.value,
+        ja3_raw: '771,4865-4866-4867-49195-49199,0-23-65281-10-11,29-23-24,0',
+        ja4: {
+          hash: 't13d1516h2_8daaf6152771_e562703ab854',
+          raw: 't13d1516h2_130113021303_00000017000d',
+        },
+        sni: 'cloudflare.com',
+        alpn: 'h2',
+      },
+      intel: [
+        {
+          kind: initialSample.kind,
+          observed: initialSample.value,
+          verdict: 'benign',
+          threat_score: 5,
+          confidence: 0.98,
+          hits: [
+            {
+              kind: initialSample.kind,
+              value: initialSample.value,
+              label: initialSample.label,
+              category: initialSample.category,
+              source: initialSample.source,
+              reference: initialSample.reference,
+              strength: 'exact',
+            },
+          ],
+        },
+      ],
+      alerts: undefined,
+    };
+    try {
+      res.write(`data: ${JSON.stringify(initialFlow)}\n\n`);
+    } catch {}
 
     sseClients.add(res);
 
