@@ -684,7 +684,8 @@ let corpusItems = [
 
 module.exports = function handler(req, res) {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const pathname = parsedUrl.pathname;
+  let pathname = parsedUrl.pathname.replace(/\/+$/, '');
+  if (!pathname) pathname = '/';
   const method = req.method;
 
   // Add CORS headers with credentials support
@@ -700,8 +701,15 @@ module.exports = function handler(req, res) {
     return;
   }
 
+  const isHealth = pathname === '/health' || pathname.endsWith('/health');
+  const isStats = pathname === '/stats' || pathname.endsWith('/stats');
+  const isAlerts = pathname === '/alerts' || pathname.endsWith('/alerts');
+  const isSearch = pathname === '/search' || pathname.endsWith('/search') || pathname === '/corpus' || pathname.endsWith('/corpus');
+  const isStream = pathname === '/stream' || pathname.endsWith('/stream') || pathname === '/events' || pathname.endsWith('/events');
+  const isExport = pathname.includes('/export');
+
   // --- /api/health ---
-  if (pathname.endsWith('/health')) {
+  if (isHealth) {
     res.setHeader('Content-Type', 'application/json');
     res.statusCode = 200;
     res.end(
@@ -717,7 +725,7 @@ module.exports = function handler(req, res) {
   }
 
   // --- /api/stats ---
-  if (pathname.endsWith('/stats')) {
+  if (isStats) {
     // Dynamic increment for live statistics
     liveIntelTotal += Math.floor(Math.random() * 2) + 1;
     liveAlertsTotal += Math.floor(Math.random() * 2);
@@ -739,8 +747,64 @@ module.exports = function handler(req, res) {
   }
 
   // --- /api/alerts ---
-  if (pathname.endsWith('/alerts')) {
+  if (isAlerts) {
     const limit = parseInt(parsedUrl.searchParams.get('limit') || '50', 10);
+
+    // Periodically prepend fresh forensic sighting so the ledger is actively alive
+    if (!alertsLedger[0] || Date.now() * 1_000_000 - alertsLedger[0].ts_nanos > 3_500_000_000) {
+      const freshPool = [
+        {
+          rule: 'ua_mismatch',
+          severity: 'high',
+          ip: `192.168.1.${Math.floor(10 + Math.random() * 200)}:${Math.floor(40000 + Math.random() * 20000)}`,
+          fp_kind: 'ja4',
+          fp_value: 't13d090600_e4465b746c05_000000000000',
+          title: 'the user-agent is lying',
+          detail: 'HTTP User-Agent claimed Mac Chrome 129.0, but cipher suite and extension vector are identical to standard Python Requests/urllib3 stack.',
+          score: Math.floor(86 + Math.random() * 8),
+        },
+        {
+          rule: 'known_bad',
+          severity: 'critical',
+          ip: `10.0.4.${Math.floor(10 + Math.random() * 200)}:${Math.floor(40000 + Math.random() * 20000)}`,
+          fp_kind: 'ja3',
+          fp_value: '6520d624a91943c2c525b6a715f5d62d',
+          title: 'known-bad fingerprint',
+          detail: 'Client TLS fingerprint exactly matches Sliver Framework implant beaconing profile catalogued by Abuse.ch.',
+          score: Math.floor(95 + Math.random() * 5),
+        },
+        {
+          rule: 'os_mismatch',
+          severity: 'medium',
+          ip: `172.16.10.${Math.floor(10 + Math.random() * 200)}:${Math.floor(40000 + Math.random() * 20000)}`,
+          fp_kind: 'ja4',
+          fp_value: 't13d1516h2_8daaf6152771_e562703ab854',
+          title: 'the stack betrays the os',
+          detail: 'TCP window size and TTL indicate Linux kernel, but TLS ClientHello extensions mimic Windows 11 Edge browser.',
+          score: Math.floor(62 + Math.random() * 10),
+        },
+        {
+          rule: 'fp_rotation',
+          severity: 'high',
+          ip: `10.0.4.${Math.floor(10 + Math.random() * 200)}:${Math.floor(40000 + Math.random() * 20000)}`,
+          fp_kind: 'ja3',
+          fp_value: 'a0e9f5d64349fb13191bc781f81f42e1',
+          title: 'rapid fingerprint agility',
+          detail: 'Host rotated through 3 distinct TLS cryptographic handshakes within a 45-second observation window.',
+          score: Math.floor(88 + Math.random() * 6),
+        },
+      ];
+      const freshAlert = {
+        ts_nanos: Date.now() * 1_000_000,
+        ...freshPool[Math.floor(Math.random() * freshPool.length)],
+      };
+      alertsLedger.unshift(freshAlert);
+      if (alertsLedger.length > 80) alertsLedger.pop();
+      const r = alertsByRule.find((x) => x.rule === freshAlert.rule);
+      if (r) r.count++;
+      liveAlertsTotal++;
+    }
+
     res.setHeader('Content-Type', 'application/json');
     res.statusCode = 200;
     res.end(JSON.stringify(alertsLedger.slice(0, limit)));
@@ -748,7 +812,7 @@ module.exports = function handler(req, res) {
   }
 
   // --- /api/search ---
-  if (pathname.endsWith('/search')) {
+  if (isSearch) {
     const q = (parsedUrl.searchParams.get('q') || '').trim().toLowerCase();
     const kind = (parsedUrl.searchParams.get('kind') || '').trim().toLowerCase();
     const limit = parseInt(parsedUrl.searchParams.get('limit') || '60', 10);
@@ -772,15 +836,21 @@ module.exports = function handler(req, res) {
   }
 
   // --- /api/stream ---
-  if (pathname.endsWith('/stream') || pathname.endsWith('/events')) {
+  if (isStream) {
     const origin = req.headers.origin || '*';
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Content-Encoding', 'none');
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.statusCode = 200;
 
+    if (res.flushHeaders) res.flushHeaders();
+    res.write(':' + ' '.repeat(2048) + '\n\n');
     res.write(': connected\n\n');
 
     // Immediate initial event so Scope grid and telemetry populate instantly
